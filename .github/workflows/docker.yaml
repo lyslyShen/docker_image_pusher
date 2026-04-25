@@ -5,7 +5,6 @@ on:
   push:
     branches: [ main ]
 
-
 env:
   ALIYUN_REGISTRY: "${{ secrets.ALIYUN_REGISTRY }}"
   ALIYUN_NAME_SPACE: "${{ secrets.ALIYUN_NAME_SPACE }}"
@@ -13,11 +12,11 @@ env:
   ALIYUN_REGISTRY_PASSWORD: "${{ secrets.ALIYUN_REGISTRY_PASSWORD }}"
 
 jobs:
-
   build:
     name: Pull
     runs-on: ubuntu-latest
     steps:
+    
     - name: Before freeing up disk space
       run: |
         echo "Before freeing up disk space"
@@ -29,14 +28,10 @@ jobs:
     - name: Maximize build space
       uses: easimon/maximize-build-space@master
       with:
-
         root-reserve-mb: 2048
         swap-size-mb: 128
         remove-dotnet: 'true'
         remove-haskell: 'true'
-        # 如果空间还是不够用，可以把以下开启，清理出更多空间
-        # remove-android: 'true'
-        # remove-codeql: 'true'
         build-mount-path: '/var/lib/docker/'
 
     - name: Restart docker
@@ -57,7 +52,15 @@ jobs:
 
     - name: Build and push image Aliyun
       run: |
-        docker login -u $ALIYUN_REGISTRY_USER -p $ALIYUN_REGISTRY_PASSWORD $ALIYUN_REGISTRY
+        # ① 使用更安全的方式登录（消除之前 --password 警告）
+        echo "$ALIYUN_REGISTRY_PASSWORD" | docker login --username="$ALIYUN_REGISTRY_USER" --password-stdin "$ALIYUN_REGISTRY"
+        
+        # ② 检查 ALIYUN_NAME_SPACE 是否为空，避免出现 // 错误
+        if [ -z "$ALIYUN_NAME_SPACE" ]; then
+          echo "❌ 错误：ALIYUN_NAME_SPACE 为空，请在 GitHub Secrets 中设置该值"
+          exit 1
+        fi
+
         # 数据预处理,判断镜像是否重名
         declare -A duplicate_images
         declare -A temp_map
@@ -139,6 +142,8 @@ jobs:
             # 将@sha256:等字符删除
             image_name_tag="${image_name_tag%%@*}"
             new_image="$ALIYUN_REGISTRY/$ALIYUN_NAME_SPACE/$platform_prefix$name_space_prefix$image_name_tag"
+            # ③ 输出完整的 new_image，方便你确认路径
+            echo "🏷️ 新镜像名: $new_image"
             echo "docker tag $image $new_image"
             docker tag $image $new_image
             echo "docker push $new_image"
