@@ -1,1 +1,1 @@
-xhofe/alist:latest-ffmpeg
+pytorch/pytorch:2.11.0-cuda13.0-cudnn9-runtime
